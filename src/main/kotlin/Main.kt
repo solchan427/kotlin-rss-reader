@@ -1,4 +1,6 @@
-import kotlinx.coroutines.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.newFixedThreadPoolContext
+import kotlinx.coroutines.runBlocking
 import org.w3c.dom.Node
 import org.w3c.dom.NodeList
 import java.time.LocalDateTime
@@ -8,28 +10,50 @@ import javax.xml.parsers.DocumentBuilderFactory
 import kotlin.system.measureTimeMillis
 
 fun main() {
-    runBlocking(newFixedThreadPoolContext(2, "newFixedThreadPoolContext")) {
-        val time = measureTimeMillis {
-            val techblogNodeList = async { parseXmlToNodeList("https://techblog.woowahan.com/feed/") }
-            val wantedjobsNodeList = async { parseXmlToNodeList("https://medium.com/feed/wantedjobs") }
+    val rssSet: MutableSet<Rss> = mutableSetOf()
+    var currentRssSize = 0;
 
-            val techblogRssList = parseRssFromNodeList(techblogNodeList.await())
-            val wantedjobsRssList = parseRssFromNodeList(wantedjobsNodeList.await())
+    while (true) {
+        runBlocking(newFixedThreadPoolContext(3, "newFixedThreadPoolContext")) {
+            val time = measureTimeMillis {
+                val techblogNodeList = async { parseXmlToNodeList("https://techblog.woowahan.com/feed/") }
+                val wantedjobsNodeList = async { parseXmlToNodeList("https://medium.com/feed/wantedjobs") }
+                val yonhapnewstvNodeList = async { parseXmlToNodeList("https://www.yonhapnewstv.co.kr/browse/feed/") }
 
-            val rssList = techblogRssList.plus(wantedjobsRssList)
+                val techblogRssList = parseRssFromNodeList(techblogNodeList.await())
+                val wantedjobsRssList = parseRssFromNodeList(wantedjobsNodeList.await())
+                val yonhapnewstvRssList = parseRssFromNodeList(yonhapnewstvNodeList.await())
 
-            rssList.sortedBy { it.pubDate }
+                val newReadRssList = techblogRssList.plus(wantedjobsRssList)
+                    .plus(yonhapnewstvRssList)
 
-            for (i in 0..10) {
-                val rss = rssList[i]
-                println("${rss.pubDate}, ${rssList[i].title}")
+                rssSet.addAll(newReadRssList)
+                val sortedRssList = rssSet.plus(newReadRssList)
+                    .sortedByDescending { it.pubDate }
+
+                if (currentRssSize != rssSet.size) {
+                    for (i in 0..<rssSet.size - currentRssSize) {
+                        val rss = sortedRssList[i]
+                        println("Updated ${rss.pubDate}, ${rss.title}")
+                    }
+                }
+
+                currentRssSize = sortedRssList.size
+
+                for (i in 0..10) {
+                    val rss = sortedRssList[i]
+                    println("${rss.pubDate}, ${sortedRssList[i].title}")
+                }
+
+//                println("find ${sortedRssList.find { el -> el.title.contains("원티드랩") }?.title}")
+                println(rssSet.size)
+                println()
+                println()
             }
 
-            println("find ${rssList.find { el -> el.title.contains("로봇") }?.title}")
         }
-        println("Execution took $time ms")
+        Thread.sleep(1000 * 10) // 10s
     }
-
 }
 
 // Rss 클래스
@@ -72,7 +96,7 @@ fun parseRssFromNodeList(nodeList: NodeList): List<Rss> {
 }
 
 // XML 파싱 함수
-suspend fun parseXmlToNodeList(url: String): NodeList {
+fun parseXmlToNodeList(url: String): NodeList {
     val factory = DocumentBuilderFactory.newInstance()
     val xml = factory.newDocumentBuilder()
         .parse(url)
