@@ -1,3 +1,6 @@
+package v2
+
+import Rss
 import org.w3c.dom.Document
 import org.w3c.dom.Node
 import java.time.ZonedDateTime

@@ -1,3 +1,6 @@
+package v2
+
+import Rss
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.w3c.dom.Document
