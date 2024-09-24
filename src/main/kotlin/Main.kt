@@ -9,28 +9,25 @@ import kotlin.system.measureTimeMillis
 
 val rssSet: MutableSet<Rss> = mutableSetOf()
 
-private val exceptionHandle = CoroutineExceptionHandler { _, exception ->
-    println("Caught $exception")
-}
-
 fun main() {
-
-    val supervisorJob = SupervisorJob()
-
-    val scope = CoroutineScope(supervisorJob + exceptionHandle)
-
     runBlocking(newFixedThreadPoolContext(2, "newFixedThreadPoolContext")) {
-        scope.launch { search() }
-        scope.launch { rssReader() }
+        launch { search() }
+        launch { rssReader() }
     }
 }
 
 fun search() {
     while (true) {
-        val inputTxt = readLine().toString()
-        throw Error("test")
+        try {
+            val inputTxt = readLine().toString()
+            if (inputTxt == "") {
+                throw Error("값이 비어있습니다.")
+            }
 
-        println("find ${rssSet.find { el -> el.title.contains(inputTxt) }?.title}")
+            println("find ${rssSet.find { el -> el.title.contains(inputTxt) }?.title}")
+        } catch (e: Error) {
+            println(e.message)
+        }
     }
 }
 
