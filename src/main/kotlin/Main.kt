@@ -1,6 +1,4 @@
-import kotlinx.coroutines.async
-import kotlinx.coroutines.newFixedThreadPoolContext
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
 import org.w3c.dom.Node
 import org.w3c.dom.NodeList
 import java.time.LocalDateTime
@@ -9,12 +7,37 @@ import java.time.format.DateTimeFormatter
 import javax.xml.parsers.DocumentBuilderFactory
 import kotlin.system.measureTimeMillis
 
-fun main() {
-    val rssSet: MutableSet<Rss> = mutableSetOf()
-    var currentRssSize = 0;
+val rssSet: MutableSet<Rss> = mutableSetOf()
 
+private val exceptionHandle = CoroutineExceptionHandler { _, exception ->
+    println("Caught $exception")
+}
+
+fun main() {
+
+    val supervisorJob = SupervisorJob()
+
+    val scope = CoroutineScope(supervisorJob + exceptionHandle)
+
+    runBlocking(newFixedThreadPoolContext(2, "newFixedThreadPoolContext")) {
+        scope.launch { search() }
+        scope.launch { rssReader() }
+    }
+}
+
+fun search() {
     while (true) {
-        runBlocking(newFixedThreadPoolContext(3, "newFixedThreadPoolContext")) {
+        val inputTxt = readLine().toString()
+        throw Error("test")
+
+        println("find ${rssSet.find { el -> el.title.contains(inputTxt) }?.title}")
+    }
+}
+
+suspend fun rssReader() = withContext(Dispatchers.IO) {
+    var currentRssSize = 0
+    while (true) {
+        launch {
             val time = measureTimeMillis {
                 val techblogNodeList = async { parseXmlToNodeList("https://techblog.woowahan.com/feed/") }
                 val wantedjobsNodeList = async { parseXmlToNodeList("https://medium.com/feed/wantedjobs") }
@@ -45,14 +68,13 @@ fun main() {
                     println("${rss.pubDate}, ${sortedRssList[i].title}")
                 }
 
-//                println("find ${sortedRssList.find { el -> el.title.contains("원티드랩") }?.title}")
                 println(rssSet.size)
                 println()
                 println()
             }
 
         }
-        Thread.sleep(1000 * 10) // 10s
+        Thread.sleep(1000 * 10) // 10so
     }
 }
 
